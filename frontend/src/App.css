@@ -1,0 +1,89 @@
+.page {
+  padding: 30px;
+  background: #0f172a;
+  min-height: 100vh;
+  color: white;
+  font-family: Arial, sans-serif;
+}
+
+.toolbar {
+  display: flex;
+  gap: 15px;
+  margin: 20px 0;
+  flex-wrap: wrap;
+}
+
+.toolbar input,
+.toolbar select {
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: none;
+  font-size: 15px;
+  outline: none;
+}
+
+.toolbar input {
+  min-width: 260px;
+}
+
+.statsRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
+  margin: 25px 0;
+}
+
+.statCard {
+  background: #1e293b;
+  padding: 20px;
+  border-radius: 16px;
+  text-align: center;
+}
+
+.statCard h3 {
+  margin: 0 0 10px 0;
+  font-size: 18px;
+}
+
+.statCard p {
+  margin: 0;
+  font-size: 28px;
+  font-weight: bold;
+  color: #38bdf8;
+}
+
+.chartWrap {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.box {
+  background: #1e293b;
+  padding: 20px;
+  border-radius: 16px;
+}
+
+.titlePosts {
+  margin-top: 30px;
+}
+
+.card {
+  background: #1e293b;
+  padding: 16px;
+  border-radius: 14px;
+  margin-top: 14px;
+  line-height: 1.6;
+  transition: 0.3s;
+}
+
+.card:hover {
+  transform: translateY(-3px);
+  background: #334155;
+}
+
+@media (max-width: 900px) {
+  .chartWrap {
+    grid-template-columns: 1fr;
+  }
+}
