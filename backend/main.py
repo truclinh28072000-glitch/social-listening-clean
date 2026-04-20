@@ -1,13 +1,12 @@
-import feedparser
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import sqlite3
+import requests
+import feedparser
+from bs4 import BeautifulSoup
 
 app = FastAPI()
 
-# =========================
-# CORS
-# =========================
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -16,12 +15,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# =========================
-# DATABASE
-# =========================
 DB = "social.db"
 
 
+# ---------------- DB INIT ----------------
 def init_db():
     conn = sqlite3.connect(DB)
     cur = conn.cursor()
@@ -44,146 +41,128 @@ def init_db():
 init_db()
 
 
-# =========================
-# GET POSTS
-# =========================
+# ---------------- GET POSTS ----------------
 @app.get("/posts")
 def get_posts():
     conn = sqlite3.connect(DB)
-    conn.row_factory = sqlite3.Row
     cur = conn.cursor()
 
     cur.execute("SELECT * FROM posts ORDER BY id DESC")
     rows = cur.fetchall()
 
     conn.close()
-    return [dict(row) for row in rows]
 
-
-# =========================
-# RESET DATABASE
-# =========================
-@app.get("/reset")
-def reset_data():
-    conn = sqlite3.connect(DB)
-    cur = conn.cursor()
-
-    cur.execute("DELETE FROM posts")
-    cur.execute("DELETE FROM sqlite_sequence WHERE name='posts'")
-
-    conn.commit()
-    conn.close()
-
-    return {"message": "Database reset success"}
-
-
-# =========================
-# SEED DATA (ION LIFE ONLY)
-# =========================
-@app.get("/seed")
-def seed_data():
-    conn = sqlite3.connect(DB)
-    cur = conn.cursor()
-
-    sample = [
-        ("Facebook", "Ion Life", "Ion Life giúp cấp nước tốt mỗi ngày", "Positive", 120),
-        ("TikTok", "Ion Life", "Review Ion Life sau khi tập gym", "Positive", 95),
-        ("YouTube", "Ion Life", "Ion Life có thật sự tốt cho sức khỏe?", "Positive", 88),
-        ("Facebook", "Ion Life", "Ion Life hơi khó mua ở cửa hàng gần nhà", "Negative", 45),
-        ("TikTok", "Ion Life", "Detox cùng Ion Life và healthy lifestyle", "Positive", 130),
-        ("YouTube", "Ion Life", "So sánh Ion Life với nước thường", "Positive", 76),
+    return [
+        {
+            "id": r[0],
+            "platform": r[1],
+            "brand": r[2],
+            "content": r[3],
+            "sentiment": r[4],
+            "likes": r[5]
+        }
+        for r in rows
     ]
 
-    cur.executemany("""
-        INSERT INTO posts
-        (platform, brand, content, sentiment, likes)
+
+# ---------------- RESET ----------------
+@app.get("/reset")
+def reset():
+    conn = sqlite3.connect(DB)
+    cur = conn.cursor()
+    cur.execute("DELETE FROM posts")
+    conn.commit()
+    conn.close()
+    return {"message": "Reset success"}
+
+
+# ---------------- TIKTOK MOCK ----------------
+@app.get("/crawl-tiktok")
+def crawl_tiktok():
+    conn = sqlite3.connect(DB)
+    cur = conn.cursor()
+
+    data = [
+        ("TikTok", "Ion Life", "Review nước ion kiềm tốt cho gym", "Positive", 420),
+        ("TikTok", "Ion Life", "Ion Life uống khá ổn, vị dễ uống", "Positive", 310),
+        ("TikTok", "Ion Life", "Giá hơi cao so với nước thường", "Negative", 150),
+    ]
+
+    for row in data:
+        cur.execute("""
+        INSERT INTO posts (platform, brand, content, sentiment, likes)
         VALUES (?, ?, ?, ?, ?)
-    """, sample)
+        """, row)
 
     conn.commit()
     conn.close()
 
-    return {"message": "Seed success"}
+    return {"message": "TikTok mock added"}
 
 
-# =========================
-# FAKE NEWS
-# =========================
-@app.get("/crawl")
+# ---------------- NEWS REAL ----------------
+@app.get("/crawl-news")
 def crawl_news():
     conn = sqlite3.connect(DB)
     cur = conn.cursor()
 
-    sample = [
-        ("News", "Ion Life", "Ion Life xuất hiện trên báo điện tử", "Positive", 0),
-        ("News", "Ion Life", "Người dùng đánh giá tốt sản phẩm", "Positive", 0),
-        ("News", "Ion Life", "Một số phản hồi cần cải thiện", "Negative", 0)
-    ]
+    keyword = "Ion Life"
+    url = f"https://news.google.com/rss/search?q={keyword}"
 
-    cur.executemany("""
-        INSERT INTO posts
-        (platform, brand, content, sentiment, likes)
+    feed = feedparser.parse(url)
+
+    count = 0
+
+    for item in feed.entries[:5]:
+        title = item.title
+
+        sentiment = "Positive"
+        bad_words = ["lỗi", "giả", "đắt", "kém"]
+
+        if any(w in title.lower() for w in bad_words):
+            sentiment = "Negative"
+
+        cur.execute("""
+        INSERT INTO posts (platform, brand, content, sentiment, likes)
         VALUES (?, ?, ?, ?, ?)
-    """, sample)
+        """, ("News", "Ion Life", title, sentiment, 0))
+
+        count += 1
 
     conn.commit()
     conn.close()
 
-    return {"message": "Fake crawl success"}
+    return {"message": f"Added {count} news posts"}
 
 
-# =========================
-# REAL NEWS CRAWL
-# =========================
-@app.get("/crawl-real")
-def crawl_real():
+# ---------------- SHOPEE MOCK REALISTIC ----------------
+@app.get("/crawl-shopee")
+def crawl_shopee():
     conn = sqlite3.connect(DB)
     cur = conn.cursor()
 
-    keyword_groups = [
-        "Ion Life OR I-on Life OR nước ion kiềm",
-        "detox OR đẹp da OR cấp nước",
-        "healthy lifestyle OR wellness",
-        "alkaline water OR functional water",
-        "nước đắt OR khó mua OR chai lỗi OR nước giả"
+    data = [
+        ("Shopee", "Ion Life", "5 sao - giao nhanh, uống ngon", "Positive", 88),
+        ("Shopee", "Ion Life", "Giá cao nhưng chất lượng tốt", "Positive", 65),
+        ("Shopee", "Ion Life", "Chai hơi móp khi nhận hàng", "Negative", 20),
     ]
 
-    inserted = 0
-
-    for group in keyword_groups:
-        try:
-            query = group.replace(" ", "+")
-            url = f"https://news.google.com/rss/search?q={query}&hl=vi&gl=VN&ceid=VN:vi"
-
-            feed = feedparser.parse(url)
-
-            for item in feed.entries[:3]:
-                title = item.title
-                sentiment = "Positive"
-
-                bad_words = ["lỗi", "giả", "đắt", "khó", "kém"]
-
-                if any(word in title.lower() for word in bad_words):
-                    sentiment = "Negative"
-
-                cur.execute("""
-                    INSERT INTO posts
-                    (platform, brand, content, sentiment, likes)
-                    VALUES (?, ?, ?, ?, ?)
-                """, (
-                    "News",
-                    "Ion Life",
-                    title,
-                    sentiment,
-                    0
-                ))
-
-                inserted += 1
-
-        except:
-            continue
+    for row in data:
+        cur.execute("""
+        INSERT INTO posts (platform, brand, content, sentiment, likes)
+        VALUES (?, ?, ?, ?, ?)
+        """, row)
 
     conn.commit()
     conn.close()
 
-    return {"message": f"Crawled {inserted} real posts"}
+    return {"message": "Shopee reviews added"}
+
+
+# ---------------- ALL DATA ----------------
+@app.get("/all-data")
+def all_data():
+    crawl_news()
+    crawl_tiktok()
+    crawl_shopee()
+    return {"message": "All data loaded"}
