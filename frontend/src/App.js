@@ -10,7 +10,8 @@ import {
   Bar,
   XAxis,
   YAxis,
-  ResponsiveContainer
+  ResponsiveContainer,
+  Legend
 } from "recharts";
 
 export default function App() {
@@ -18,23 +19,14 @@ export default function App() {
   const [search, setSearch] = useState("");
   const [platformFilter, setPlatformFilter] = useState("All");
 
-  // ✅ Load data từ Render backend
+  const API = "https://social-listening-clean.onrender.com";
+
   useEffect(() => {
-    const fetchData = () => {
-      axios
-        .get("https://social-listening-clean.onrender.com/posts")
-        .then((res) => setPosts(res.data))
-        .catch((err) => console.log(err));
-    };
-
-    fetchData();
-
-    // auto refresh mỗi 5 giây
-    const interval = setInterval(fetchData, 5000);
-    return () => clearInterval(interval);
+    axios.get(`${API}/posts`)
+      .then((res) => setPosts(res.data))
+      .catch((err) => console.log(err));
   }, []);
 
-  // ✅ Filter
   const filteredPosts = posts.filter((post) => {
     const keyword = search.toLowerCase();
 
@@ -49,63 +41,52 @@ export default function App() {
     return matchKeyword && matchPlatform;
   });
 
-  // ✅ Stats
-  const positive = filteredPosts.filter(
-    (p) => p.sentiment === "Positive"
-  ).length;
+  const total = filteredPosts.length;
+  const positive = filteredPosts.filter(p => p.sentiment === "Positive").length;
+  const negative = filteredPosts.filter(p => p.sentiment === "Negative").length;
 
-  const negative = filteredPosts.filter(
-    (p) => p.sentiment === "Negative"
-  ).length;
+  const positiveRate = total ? ((positive / total) * 100).toFixed(0) : 0;
+  const negativeRate = total ? ((negative / total) * 100).toFixed(0) : 0;
 
-  const facebook = filteredPosts.filter(
-    (p) => p.platform === "Facebook"
-  ).length;
+  const avgLikes = total
+    ? Math.round(filteredPosts.reduce((a, b) => a + b.likes, 0) / total)
+    : 0;
 
-  const tiktok = filteredPosts.filter(
-    (p) => p.platform === "TikTok"
-  ).length;
+  const platformCounts = {
+    Facebook: filteredPosts.filter(p => p.platform === "Facebook").length,
+    TikTok: filteredPosts.filter(p => p.platform === "TikTok").length,
+    YouTube: filteredPosts.filter(p => p.platform === "YouTube").length,
+    News: filteredPosts.filter(p => p.platform === "News").length
+  };
 
-  const youtube = filteredPosts.filter(
-    (p) => p.platform === "YouTube"
-  ).length;
+  const topPlatform = Object.keys(platformCounts).reduce((a, b) =>
+    platformCounts[a] > platformCounts[b] ? a : b
+  );
 
-  const news = filteredPosts.filter(
-    (p) => p.platform === "News"
-  ).length;
-
-  // ✅ Chart Data
   const pieData = [
     { name: "Positive", value: positive },
     { name: "Negative", value: negative }
   ];
 
-  const barData = [
-    { name: "Facebook", value: facebook },
-    { name: "TikTok", value: tiktok },
-    { name: "YouTube", value: youtube },
-    { name: "News", value: news }
-  ];
+  const barData = Object.keys(platformCounts).map((key) => ({
+    name: key,
+    value: platformCounts[key]
+  }));
+
+  const likeData = filteredPosts.slice(0, 6).map((item, index) => ({
+    name: `#${index + 1}`,
+    likes: item.likes
+  }));
 
   const COLORS = ["#22c55e", "#ef4444"];
 
-  // ✅ Top platform
-  const platformList = [
-    { name: "Facebook", value: facebook },
-    { name: "TikTok", value: tiktok },
-    { name: "YouTube", value: youtube },
-    { name: "News", value: news }
-  ];
-
-  const topPlatform = platformList.reduce((max, item) =>
-    item.value > max.value ? item : max
-  ).name;
-
   return (
     <div className="page">
-      <h1>📊 Social Listening Dashboard</h1>
+      <header className="header">
+        <h1>📊 Social Listening PRO</h1>
+        <p>Real-time Brand Monitoring Dashboard</p>
+      </header>
 
-      {/* Toolbar */}
       <div className="toolbar">
         <input
           type="text"
@@ -118,7 +99,7 @@ export default function App() {
           value={platformFilter}
           onChange={(e) => setPlatformFilter(e.target.value)}
         >
-          <option value="All">All</option>
+          <option value="All">All Platforms</option>
           <option value="Facebook">Facebook</option>
           <option value="TikTok">TikTok</option>
           <option value="YouTube">YouTube</option>
@@ -126,96 +107,98 @@ export default function App() {
         </select>
       </div>
 
-      {/* Stats */}
       <div className="statsRow">
         <div className="statCard">
-          <h3>Total Posts</h3>
-          <p>{filteredPosts.length}</p>
+          <h3>Total Mentions</h3>
+          <p>{total}</p>
         </div>
 
         <div className="statCard">
-          <h3>Positive</h3>
-          <p>{positive}</p>
+          <h3>Positive Rate</h3>
+          <p>{positiveRate}%</p>
         </div>
 
         <div className="statCard">
-          <h3>Negative</h3>
-          <p>{negative}</p>
+          <h3>Negative Rate</h3>
+          <p>{negativeRate}%</p>
         </div>
 
         <div className="statCard">
           <h3>Top Platform</h3>
           <p>{topPlatform}</p>
         </div>
+
+        <div className="statCard">
+          <h3>Avg Likes</h3>
+          <p>{avgLikes}</p>
+        </div>
       </div>
 
-      {/* Charts */}
-      <div className="chartWrap">
+      <div className="chartGrid">
         <div className="box">
-          <h2>Sentiment Chart</h2>
-
-          <ResponsiveContainer width="100%" height={260}>
+          <h2>Sentiment Breakdown</h2>
+          <ResponsiveContainer width="100%" height={280}>
             <PieChart>
               <Pie
                 data={pieData}
                 dataKey="value"
-                outerRadius={90}
+                innerRadius={60}
+                outerRadius={95}
+                paddingAngle={3}
                 label
               >
                 {pieData.map((item, index) => (
-                  <Cell
-                    key={index}
-                    fill={COLORS[index % COLORS.length]}
-                  />
+                  <Cell key={index} fill={COLORS[index]} />
                 ))}
               </Pie>
               <Tooltip />
+              <Legend />
             </PieChart>
           </ResponsiveContainer>
         </div>
 
         <div className="box">
-          <h2>Platform Chart</h2>
-
-          <ResponsiveContainer width="100%" height={260}>
+          <h2>Platform Volume</h2>
+          <ResponsiveContainer width="100%" height={280}>
             <BarChart data={barData}>
-              <XAxis dataKey="name" stroke="#ffffff" />
-              <YAxis stroke="#ffffff" />
+              <XAxis dataKey="name" stroke="#fff" />
+              <YAxis stroke="#fff" />
               <Tooltip />
-              <Bar
-                dataKey="value"
-                fill="#3b82f6"
-                radius={[8, 8, 0, 0]}
-              />
+              <Bar dataKey="value" fill="#3b82f6" radius={[8,8,0,0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="box full">
+          <h2>Top Likes</h2>
+          <ResponsiveContainer width="100%" height={280}>
+            <BarChart data={likeData}>
+              <XAxis dataKey="name" stroke="#fff" />
+              <YAxis stroke="#fff" />
+              <Tooltip />
+              <Bar dataKey="likes" fill="#f59e0b" radius={[8,8,0,0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      {/* Recent Posts */}
-      <h2 className="titlePosts">Recent Posts</h2>
+      <h2 className="titlePosts">Recent Mentions</h2>
 
-      {filteredPosts.map((post, i) => (
-        <div key={i} className="card">
-          <strong>{post.platform}</strong> | {post.brand}
-          <br />
-          {post.content}
-          <br />
-
-          <span
-            style={{
-              color:
-                post.sentiment === "Positive"
-                  ? "#22c55e"
-                  : "#ef4444",
-              fontWeight: "bold"
-            }}
-          >
-            {post.sentiment}
-          </span>
-          {" "}👍 {post.likes}
-        </div>
-      ))}
+      <div className="tableWrap">
+        {filteredPosts.map((post, i) => (
+          <div key={i} className="row">
+            <div>{post.platform}</div>
+            <div>{post.brand}</div>
+            <div>{post.content}</div>
+            <div>
+              <span className={post.sentiment === "Positive" ? "good" : "bad"}>
+                {post.sentiment}
+              </span>
+            </div>
+            <div>👍 {post.likes}</div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
