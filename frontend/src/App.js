@@ -18,19 +18,23 @@ export default function App() {
   const [search, setSearch] = useState("");
   const [platformFilter, setPlatformFilter] = useState("All");
 
+  // ✅ Load data từ Render backend
   useEffect(() => {
     const fetchData = () => {
       axios
-        .get("http://127.0.0.1:8000/posts")
+        .get("https://social-listening-clean.onrender.com/posts")
         .then((res) => setPosts(res.data))
         .catch((err) => console.log(err));
     };
 
     fetchData();
+
+    // auto refresh mỗi 5 giây
     const interval = setInterval(fetchData, 5000);
     return () => clearInterval(interval);
   }, []);
 
+  // ✅ Filter
   const filteredPosts = posts.filter((post) => {
     const keyword = search.toLowerCase();
 
@@ -45,6 +49,7 @@ export default function App() {
     return matchKeyword && matchPlatform;
   });
 
+  // ✅ Stats
   const positive = filteredPosts.filter(
     (p) => p.sentiment === "Positive"
   ).length;
@@ -69,6 +74,7 @@ export default function App() {
     (p) => p.platform === "News"
   ).length;
 
+  // ✅ Chart Data
   const pieData = [
     { name: "Positive", value: positive },
     { name: "Negative", value: negative }
@@ -83,6 +89,7 @@ export default function App() {
 
   const COLORS = ["#22c55e", "#ef4444"];
 
+  // ✅ Top platform
   const platformList = [
     { name: "Facebook", value: facebook },
     { name: "TikTok", value: tiktok },
@@ -98,6 +105,7 @@ export default function App() {
     <div className="page">
       <h1>📊 Social Listening Dashboard</h1>
 
+      {/* Toolbar */}
       <div className="toolbar">
         <input
           type="text"
@@ -118,6 +126,7 @@ export default function App() {
         </select>
       </div>
 
+      {/* Stats */}
       <div className="statsRow">
         <div className="statCard">
           <h3>Total Posts</h3>
@@ -140,12 +149,19 @@ export default function App() {
         </div>
       </div>
 
+      {/* Charts */}
       <div className="chartWrap">
         <div className="box">
           <h2>Sentiment Chart</h2>
+
           <ResponsiveContainer width="100%" height={260}>
             <PieChart>
-              <Pie data={pieData} dataKey="value" outerRadius={90} label>
+              <Pie
+                data={pieData}
+                dataKey="value"
+                outerRadius={90}
+                label
+              >
                 {pieData.map((item, index) => (
                   <Cell
                     key={index}
@@ -160,6 +176,7 @@ export default function App() {
 
         <div className="box">
           <h2>Platform Chart</h2>
+
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={barData}>
               <XAxis dataKey="name" stroke="#ffffff" />
@@ -175,6 +192,7 @@ export default function App() {
         </div>
       </div>
 
+      {/* Recent Posts */}
       <h2 className="titlePosts">Recent Posts</h2>
 
       {filteredPosts.map((post, i) => (
@@ -183,6 +201,7 @@ export default function App() {
           <br />
           {post.content}
           <br />
+
           <span
             style={{
               color:
