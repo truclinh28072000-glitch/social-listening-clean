@@ -1,261 +1,363 @@
 import React, { useEffect, useMemo, useState } from "react";
-import "./App.css";
-import axios from "axios";
 import {
-  PieChart,
-  Pie,
-  Cell,
-  Tooltip,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  ResponsiveContainer,
-  Legend
+  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
+  ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid
 } from "recharts";
 
 export default function App() {
-  const API = "https://social-listening-clean.onrender.com";
-
   const [posts, setPosts] = useState([]);
-  const [search, setSearch] = useState("");
-  const [platformFilter, setPlatformFilter] = useState("All");
-  const [range, setRange] = useState("30");
+  const [keyword, setKeyword] = useState("");
+  const [platform, setPlatform] = useState("All");
 
+  // =====================================
+  // LOAD API
+  // =====================================
   useEffect(() => {
-    axios
-      .get(`${API}/posts`)
-      .then((res) => setPosts(res.data))
-      .catch(console.log);
+    fetch("http://127.0.0.1:8000/posts")
+      .then((res) => res.json())
+      .then((data) => {
+        setPosts(Array.isArray(data) ? data : []);
+      })
+      .catch(() => setPosts([]));
   }, []);
 
-  // lọc data
-  const filteredPosts = useMemo(() => {
-    return posts.filter((post) => {
-      const keyword = search.toLowerCase();
+  // =====================================
+  // FULL PLATFORM LIST (NEW)
+  // =====================================
+  const defaultPlatforms = [
+    "TikTok",
+    "Facebook",
+    "Instagram",
+    "Threads",
+    "YouTube",
+    "Shopee",
+    "Lazada",
+    "Tiki",
+    "News",
+    "Google Trends",
+    "Search Query",
+    "Webtretho",
+    "Reddit",
+    "Forum",
+    "Retail Feedback"
+  ];
 
+  const platformOptions = useMemo(() => {
+    const apiPlatforms = posts.map((p) => p.platform?.trim()).filter(Boolean);
+    const merged = [...new Set([...defaultPlatforms, ...apiPlatforms])];
+    return ["All", ...merged];
+  }, [posts]);
+
+  // =====================================
+  // FILTER
+  // =====================================
+  const filtered = useMemo(() => {
+    return posts.filter((item) => {
       const matchKeyword =
-        post.content.toLowerCase().includes(keyword) ||
-        post.brand.toLowerCase().includes(keyword);
+        keyword === "" ||
+        item.content?.toLowerCase().includes(keyword.toLowerCase());
 
       const matchPlatform =
-        platformFilter === "All" || post.platform === platformFilter;
+        platform === "All" ||
+        item.platform?.trim().toLowerCase() === platform.toLowerCase();
 
       return matchKeyword && matchPlatform;
     });
-  }, [posts, search, platformFilter]);
+  }, [posts, keyword, platform]);
 
-  // stats
-  const total = filteredPosts.length;
-  const positive = filteredPosts.filter(
-    (p) => p.sentiment === "Positive"
+  // =====================================
+  // KPI
+  // =====================================
+  const total = filtered.length;
+
+  const positive = filtered.filter(
+    (p) => p.sentiment?.toLowerCase() === "positive"
   ).length;
 
-  const negative = filteredPosts.filter(
-    (p) => p.sentiment === "Negative"
+  const negative = filtered.filter(
+    (p) => p.sentiment?.toLowerCase() === "negative"
   ).length;
 
-  const avgLikes =
-    total > 0
-      ? Math.round(
-          filteredPosts.reduce((sum, p) => sum + p.likes, 0) / total
-        )
-      : 0;
+  const neutral = total - positive - negative;
 
-  // chart data
-  const pieData = [
-    { name: "Positive", value: positive },
-    { name: "Negative", value: negative }
-  ];
+  const positiveRate = total ? Math.round((positive / total) * 100) : 0;
+  const negativeRate = total ? Math.round((negative / total) * 100) : 0;
 
-  const platformData = ["Facebook", "TikTok", "YouTube", "News"].map(
-    (name) => ({
-      name,
-      value: filteredPosts.filter((p) => p.platform === name).length
-    })
-  );
+  const avgLikes = total
+    ? Math.round(
+        filtered.reduce((sum, item) => sum + Number(item.likes || 0), 0) / total
+      )
+    : 0;
+
+  // Platform count
+  const platformMap = {};
+  filtered.forEach((item) => {
+    platformMap[item.platform] = (platformMap[item.platform] || 0) + 1;
+  });
 
   const topPlatform =
-    [...platformData].sort((a, b) => b.value - a.value)[0]?.name || "-";
+    Object.keys(platformMap).sort((a, b) => platformMap[b] - platformMap[a])[0] || "-";
 
-  // brand compare
-  const brandMap = {};
-  filteredPosts.forEach((p) => {
-    brandMap[p.brand] = (brandMap[p.brand] || 0) + 1;
-  });
+  const sources = Object.keys(platformMap).length;
 
-  const brandData = Object.keys(brandMap).map((key) => ({
+  // =====================================
+  // CHART DATA
+  // =====================================
+  const trendData = [
+    { month: "Jan", mentions: 5 },
+    { month: "Feb", mentions: 7 },
+    { month: "Mar", mentions: 8 },
+    { month: "Apr", mentions: 10 },
+    { month: "May", mentions: 12 },
+    { month: "Jun", mentions: total }
+  ];
+
+  const sentimentData = [
+    { name: "Positive", value: positive },
+    { name: "Negative", value: negative },
+    { name: "Neutral", value: neutral }
+  ];
+
+  const platformData = Object.keys(platformMap).map((key) => ({
     name: key,
-    value: brandMap[key]
+    mentions: platformMap[key]
   }));
 
-  // keyword cloud
-  const words = {};
-  filteredPosts.forEach((p) => {
-    p.content.split(" ").forEach((w) => {
-      const clean = w
-        .toLowerCase()
-        .replace(/[^\wÀ-ỹ]/g, "");
-
-      if (clean.length > 3) {
-        words[clean] = (words[clean] || 0) + 1;
-      }
-    });
+  // Keyword intelligence
+  const keywordMap = {};
+  filtered.forEach((item) => {
+    item.content
+      ?.toLowerCase()
+      .replace(/[^\wÀ-ỹ\s]/g, "")
+      .split(" ")
+      .filter((w) => w.length > 2)
+      .forEach((word) => {
+        keywordMap[word] = (keywordMap[word] || 0) + 1;
+      });
   });
 
-  const topWords = Object.entries(words)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 12);
+  const keywordData = Object.keys(keywordMap)
+    .map((key) => ({
+      keyword: key,
+      count: keywordMap[key]
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10);
 
-  // AI insight
-  const insight = `
-📊 Total Mentions: ${total}
-😊 Positive: ${positive}
-😡 Negative: ${negative}
-🔥 Top Platform: ${topPlatform}
-👍 Avg Likes: ${avgLikes}
-
-Recommendation:
-${
-  negative > positive
-    ? "Urgent sentiment recovery campaign needed."
-    : "Momentum is positive. Scale awareness & conversion."
-}
-`;
-
-  const COLORS = ["#22c55e", "#ef4444"];
+  const COLORS = ["#22c55e", "#ef4444", "#64748b"];
 
   return (
-    <div className="page">
-      <header className="header">
-        <h1>📡 Social Listening Intelligence</h1>
-        <p>Real-time Monitoring & Consumer Insights</p>
-      </header>
+    <div style={page}>
+      <h1 style={{ fontSize: 54 }}>📊 Social Listening ENTERPRISE</h1>
+      <p style={{ color: "#94a3b8", marginTop: -10 }}>
+        Real-Time Brand Intelligence | Ion Life
+      </p>
 
-      {/* Toolbar */}
-      <div className="toolbar">
+      {/* FILTER */}
+      <div style={{ display: "flex", gap: 15, margin: "25px 0", flexWrap: "wrap" }}>
         <input
           placeholder="Search keyword..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          value={keyword}
+          onChange={(e) => setKeyword(e.target.value)}
+          style={inputStyle}
         />
 
         <select
-          value={platformFilter}
-          onChange={(e) => setPlatformFilter(e.target.value)}
+          value={platform}
+          onChange={(e) => setPlatform(e.target.value)}
+          style={inputStyle}
         >
-          <option value="All">All Platforms</option>
-          <option value="Facebook">Facebook</option>
-          <option value="TikTok">TikTok</option>
-          <option value="YouTube">YouTube</option>
-          <option value="News">News</option>
-        </select>
-
-        <select
-          value={range}
-          onChange={(e) => setRange(e.target.value)}
-        >
-          <option value="1">Today</option>
-          <option value="7">7 Days</option>
-          <option value="30">30 Days</option>
+          {platformOptions.map((p) => (
+            <option key={p}>{p}</option>
+          ))}
         </select>
       </div>
 
-      {/* Stats */}
-      <div className="statsRow">
-        <div className="statCard">
-          <h3>Total</h3>
-          <p>{total}</p>
-        </div>
-
-        <div className="statCard">
-          <h3>Positive</h3>
-          <p>{positive}</p>
-        </div>
-
-        <div className="statCard">
-          <h3>Negative</h3>
-          <p>{negative}</p>
-        </div>
-
-        <div className="statCard">
-          <h3>Top Platform</h3>
-          <p>{topPlatform}</p>
-        </div>
-
-        <div className="statCard">
-          <h3>Avg Likes</h3>
-          <p>{avgLikes}</p>
-        </div>
+      {/* KPI */}
+      <div style={grid6}>
+        <Card title="Total Mentions" value={total} />
+        <Card title="Positive Rate" value={`${positiveRate}%`} />
+        <Card title="Negative Rate" value={`${negativeRate}%`} />
+        <Card title="Top Platform" value={topPlatform} />
+        <Card title="Avg Likes" value={avgLikes} />
+        <Card title="Sources" value={sources} />
       </div>
 
-      {/* Charts */}
-      <div className="chartGrid">
-        {/* Pie */}
-        <div className="box">
-          <h2>Sentiment</h2>
-          <ResponsiveContainer width="100%" height={280}>
+      {/* ROW 1 */}
+      <div style={grid2}>
+        <Panel title="Mention Trend">
+          <ResponsiveContainer width="100%" height={320}>
+            <LineChart data={trendData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1e3a8a" />
+              <XAxis dataKey="month" stroke="#94a3b8" />
+              <YAxis stroke="#94a3b8" />
+              <Tooltip />
+              <Line
+                type="monotone"
+                dataKey="mentions"
+                stroke="#38bdf8"
+                strokeWidth={3}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </Panel>
+
+        <Panel title="Sentiment Breakdown">
+          <ResponsiveContainer width="100%" height={320}>
             <PieChart>
-              <Pie
-                data={pieData}
-                dataKey="value"
-                innerRadius={60}
-                outerRadius={95}
-              >
-                {pieData.map((e, i) => (
+              <Pie data={sentimentData} dataKey="value" outerRadius={110} label>
+                {sentimentData.map((_, i) => (
                   <Cell key={i} fill={COLORS[i]} />
                 ))}
               </Pie>
-              <Tooltip />
               <Legend />
             </PieChart>
           </ResponsiveContainer>
-        </div>
-
-        {/* Platform */}
-        <div className="box">
-          <h2>Platform Trend</h2>
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={platformData}>
-              <XAxis dataKey="name" stroke="#fff" />
-              <YAxis stroke="#fff" />
-              <Tooltip />
-              <Bar dataKey="value" fill="#3b82f6" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Competitor */}
-        <div className="box">
-          <h2>Competitor Compare</h2>
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={brandData}>
-              <XAxis dataKey="name" stroke="#fff" />
-              <YAxis stroke="#fff" />
-              <Tooltip />
-              <Bar dataKey="value" fill="#f59e0b" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Keyword */}
-        <div className="box">
-          <h2>Keyword Cloud</h2>
-          <div className="wordCloud">
-            {topWords.map(([word, count], i) => (
-              <span key={i} className="tag">
-                {word} ({count})
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* AI Insight */}
-        <div className="box full">
-          <h2>AI Insight</h2>
-          <pre className="insightBox">{insight}</pre>
-        </div>
+        </Panel>
       </div>
+
+      {/* ROW 2 */}
+      <div style={grid2}>
+        <Panel title="Platform Performance">
+          <ResponsiveContainer width="100%" height={320}>
+            <BarChart data={platformData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1e3a8a" />
+              <XAxis dataKey="name" stroke="#94a3b8" />
+              <YAxis stroke="#94a3b8" />
+              <Tooltip />
+              <Bar dataKey="mentions" fill="#6366f1" radius={[8, 8, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </Panel>
+
+        <Panel title="Keyword Intelligence">
+          <table style={{ width: "100%", color: "white" }}>
+            <tbody>
+              {keywordData.map((item, i) => (
+                <tr key={i}>
+                  <td style={{ padding: 8 }}>{item.keyword}</td>
+                  <td style={{ textAlign: "right" }}>{item.count}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Panel>
+      </div>
+
+      {/* POSTS */}
+      <Panel title="Recent Mentions">
+        {filtered.length === 0 && (
+          <p style={{ color: "#94a3b8" }}>No data found.</p>
+        )}
+
+        {filtered.map((item) => (
+          <div
+            key={item.id}
+            style={{
+              padding: "14px 0",
+              borderBottom: "1px solid #1e3a8a"
+            }}
+          >
+            <b>{item.platform}</b> | {item.brand}
+            <div style={{ marginTop: 6 }}>{item.content}</div>
+            <small style={{ color: "#94a3b8" }}>
+              {item.sentiment} 👍 {item.likes}
+            </small>
+          </div>
+        ))}
+      </Panel>
+
+      {/* AI */}
+      <Panel title="AI Strategic Recommendation">
+        <ul style={{ lineHeight: 2 }}>
+          <li>✅ {topPlatform} đang là nguồn thảo luận mạnh nhất.</li>
+          <li>✅ Positive sentiment đạt {positiveRate}%.</li>
+          <li>✅ Nên tăng creator review + social proof.</li>
+          <li>✅ Tập trung messaging: sức khỏe + lifestyle.</li>
+          <li>✅ Theo dõi pain point từ comment tiêu cực.</li>
+          <li>✅ Expand sang TikTok + Shopee + Search Intent.</li>
+        </ul>
+      </Panel>
     </div>
   );
 }
+
+// =====================================
+// COMPONENTS
+// =====================================
+function Card({ title, value }) {
+  return (
+    <div style={card}>
+      <div style={{ color: "#94a3b8" }}>{title}</div>
+      <div style={cardValue}>{value}</div>
+    </div>
+  );
+}
+
+function Panel({ title, children }) {
+  return (
+    <div style={panel}>
+      <h2 style={{ marginBottom: 20 }}>{title}</h2>
+      {children}
+    </div>
+  );
+}
+
+// STYLES
+// =====================================
+const page = {
+  background: "#020617",
+  minHeight: "100vh",
+  color: "white",
+  padding: 20,
+  fontFamily: "Arial, sans-serif"
+};
+
+const inputStyle = {
+  background: "#0f172a",
+  color: "white",
+  border: "1px solid #2563eb",
+  borderRadius: 10,
+  padding: "14px 16px",
+  minWidth: 220,
+  fontSize: 16,
+  outline: "none"
+};
+
+const grid6 = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))",
+  gap: 16,
+  marginBottom: 20
+};
+
+const grid2 = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit,minmax(500px,1fr))",
+  gap: 16,
+  marginBottom: 20
+};
+
+const card = {
+  background: "#0f172a",
+  border: "1px solid #1e3a8a",
+  borderRadius: 18,
+  padding: 22,
+  boxShadow: "0 8px 24px rgba(0,0,0,0.25)"
+};
+
+const cardValue = {
+  fontSize: 34,
+  fontWeight: "bold",
+  color: "#38bdf8",
+  marginTop: 10
+};
+
+const panel = {
+  background: "#0f172a",
+  border: "1px solid #1e3a8a",
+  borderRadius: 18,
+  padding: 22,
+  marginBottom: 20,
+  boxShadow: "0 8px 24px rgba(0,0,0,0.25)"
+};
