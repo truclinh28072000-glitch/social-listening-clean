@@ -18,13 +18,23 @@ export default function App() {
   const [search, setSearch] = useState("");
   const [platformFilter, setPlatformFilter] = useState("All");
 
+  // 👉 Auto Refresh mỗi 5 giây
   useEffect(() => {
-    axios
-      .get("http://127.0.0.1:8000/posts")
-      .then((res) => setPosts(res.data))
-      .catch((err) => console.log(err));
+    const fetchData = () => {
+      axios
+        .get("http://127.0.0.1:8000/posts")
+        .then((res) => setPosts(res.data))
+        .catch((err) => console.log(err));
+    };
+
+    fetchData();
+
+    const interval = setInterval(fetchData, 5000);
+
+    return () => clearInterval(interval);
   }, []);
 
+  // 👉 Search + Filter
   const filteredPosts = posts.filter((post) => {
     const keyword = search.toLowerCase();
 
@@ -39,6 +49,7 @@ export default function App() {
     return matchKeyword && matchPlatform;
   });
 
+  // 👉 Sentiment
   const positive = filteredPosts.filter(
     (p) => p.sentiment === "Positive"
   ).length;
@@ -47,6 +58,7 @@ export default function App() {
     (p) => p.sentiment === "Negative"
   ).length;
 
+  // 👉 Platform count
   const facebook = filteredPosts.filter(
     (p) => p.platform === "Facebook"
   ).length;
@@ -59,30 +71,43 @@ export default function App() {
     (p) => p.platform === "YouTube"
   ).length;
 
+  const news = filteredPosts.filter(
+    (p) => p.platform === "News"
+  ).length;
+
+  // 👉 Pie Chart
   const pieData = [
     { name: "Positive", value: positive },
     { name: "Negative", value: negative }
   ];
 
+  // 👉 Bar Chart
   const barData = [
     { name: "Facebook", value: facebook },
     { name: "TikTok", value: tiktok },
-    { name: "YouTube", value: youtube }
+    { name: "YouTube", value: youtube },
+    { name: "News", value: news }
   ];
 
   const COLORS = ["#22c55e", "#ef4444"];
 
-  const topPlatform =
-    facebook >= tiktok && facebook >= youtube
-      ? "Facebook"
-      : tiktok >= youtube
-      ? "TikTok"
-      : "YouTube";
+  // 👉 Top Platform dynamic
+  const platformList = [
+    { name: "Facebook", value: facebook },
+    { name: "TikTok", value: tiktok },
+    { name: "YouTube", value: youtube },
+    { name: "News", value: news }
+  ];
+
+  const topPlatform = platformList.reduce((max, item) =>
+    item.value > max.value ? item : max
+  ).name;
 
   return (
     <div className="page">
       <h1>📊 Social Listening Dashboard</h1>
 
+      {/* Toolbar */}
       <div className="toolbar">
         <input
           type="text"
@@ -99,9 +124,11 @@ export default function App() {
           <option value="Facebook">Facebook</option>
           <option value="TikTok">TikTok</option>
           <option value="YouTube">YouTube</option>
+          <option value="News">News</option>
         </select>
       </div>
 
+      {/* Stats */}
       <div className="statsRow">
         <div className="statCard">
           <h3>Total Posts</h3>
@@ -124,6 +151,7 @@ export default function App() {
         </div>
       </div>
 
+      {/* Charts */}
       <div className="chartWrap">
         <div className="box">
           <h2>Sentiment Chart</h2>
@@ -166,6 +194,7 @@ export default function App() {
         </div>
       </div>
 
+      {/* Recent Posts */}
       <h2 className="titlePosts">Recent Posts</h2>
 
       {filteredPosts.map((post, i) => (
@@ -174,6 +203,7 @@ export default function App() {
           <br />
           {post.content}
           <br />
+
           <span
             style={{
               color:
@@ -185,6 +215,7 @@ export default function App() {
           >
             {post.sentiment}
           </span>
+
           {" "}👍 {post.likes}
         </div>
       ))}
