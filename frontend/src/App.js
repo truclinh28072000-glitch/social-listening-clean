@@ -81,18 +81,14 @@ export default function App() {
       .map((p) => p.platform?.trim())
       .filter(Boolean);
 
-    return [
-      "All",
-      ...new Set([...DEFAULT_PLATFORMS, ...apiPlatforms])
-    ];
+    return ["All", ...new Set([...DEFAULT_PLATFORMS, ...apiPlatforms])];
   }, [posts]);
 
   /* FILTERED POSTS */
   const filtered = useMemo(() => {
     return posts.filter((item) => {
       const content = item.content?.toLowerCase() || "";
-      const itemPlatform =
-        item.platform?.toLowerCase() || "";
+      const itemPlatform = item.platform?.toLowerCase() || "";
 
       const matchKeyword =
         keyword.trim() === "" ||
@@ -110,13 +106,11 @@ export default function App() {
   const total = filtered.length;
 
   const positive = filtered.filter(
-    (x) =>
-      x.sentiment?.toLowerCase() === "positive"
+    (x) => x.sentiment?.toLowerCase() === "positive"
   ).length;
 
   const negative = filtered.filter(
-    (x) =>
-      x.sentiment?.toLowerCase() === "negative"
+    (x) => x.sentiment?.toLowerCase() === "negative"
   ).length;
 
   const neutral = total - positive - negative;
@@ -155,8 +149,7 @@ export default function App() {
       (a, b) => platformMap[b] - platformMap[a]
     )[0] || "-";
 
-  const sources =
-    Object.keys(platformMap).length;
+  const sources = Object.keys(platformMap).length;
 
   /* CHART DATA */
   const trendData = [
@@ -174,14 +167,12 @@ export default function App() {
     { name: "Neutral", value: neutral }
   ];
 
-  const platformData = Object.keys(platformMap).map(
-    (key) => ({
-      name: key,
-      mentions: platformMap[key]
-    })
-  );
+  const platformData = Object.keys(platformMap).map((key) => ({
+    name: key,
+    mentions: platformMap[key]
+  }));
 
-  /* KEYWORD */
+  /* KEYWORD DATA */
   const keywordData = useMemo(() => {
     const map = {};
 
@@ -210,9 +201,7 @@ export default function App() {
   ========================= */
   return (
     <div style={page}>
-      <h1 style={title}>
-        📊 Social Listening ENTERPRISE
-      </h1>
+      <h1 style={title}>📊 Social Listening ENTERPRISE</h1>
 
       <p style={subtitle}>
         Real-Time Brand Intelligence | Ion Life
@@ -224,17 +213,13 @@ export default function App() {
           style={input}
           placeholder="Search keyword..."
           value={keyword}
-          onChange={(e) =>
-            setKeyword(e.target.value)
-          }
+          onChange={(e) => setKeyword(e.target.value)}
         />
 
         <select
           style={input}
           value={platform}
-          onChange={(e) =>
-            setPlatform(e.target.value)
-          }
+          onChange={(e) => setPlatform(e.target.value)}
         >
           {platformOptions.map((p) => (
             <option key={p}>{p}</option>
@@ -267,7 +252,7 @@ export default function App() {
             <Card title="Sources" value={sources} />
           </div>
 
-          {/* CHARTS */}
+          {/* MAIN CHARTS */}
           <div style={grid2}>
             <Panel title="Mention Trend">
               <ChartLine data={trendData} />
@@ -292,13 +277,58 @@ export default function App() {
               ))}
             </Panel>
           </div>
+
+          {/* RECENT MENTIONS */}
+          <Panel title="Recent Mentions">
+            {filtered.slice(0, 6).map((item) => (
+              <div key={item.id} style={mentionItem}>
+                <div style={{ fontWeight: "bold" }}>
+                  {item.platform} | {item.brand}
+                </div>
+
+                <div style={{ marginTop: 6 }}>
+                  {item.content}
+                </div>
+
+                <small style={{ color: "#94a3b8" }}>
+                  {item.sentiment} 👍 {item.likes}
+                </small>
+              </div>
+            ))}
+          </Panel>
+
+          {/* AI RECOMMENDATION */}
+          <Panel title="AI Strategic Recommendation">
+            <ul style={recommendList}>
+              <li>
+                ✅ {topPlatform} đang là nguồn thảo luận mạnh nhất.
+              </li>
+              <li>
+                ✅ Positive sentiment đạt {positiveRate}%.
+              </li>
+              <li>
+                ✅ Nên tăng creator review + social proof.
+              </li>
+              <li>
+                ✅ Tập trung messaging: sức khỏe + lifestyle.
+              </li>
+              <li>
+                ✅ Theo dõi pain point từ comment tiêu cực.
+              </li>
+              <li>
+                ✅ Expand sang TikTok + Shopee + Search Intent.
+              </li>
+            </ul>
+          </Panel>
         </>
       )}
     </div>
   );
 }
 
-/* COMPONENTS */
+/* =========================
+   COMPONENTS
+========================= */
 function Card({ title, value }) {
   return (
     <div style={card}>
@@ -311,7 +341,7 @@ function Card({ title, value }) {
 function Panel({ title, children }) {
   return (
     <div style={panel}>
-      <h2>{title}</h2>
+      <h2 style={{ marginBottom: 16 }}>{title}</h2>
       {children}
     </div>
   );
@@ -339,7 +369,12 @@ function ChartPie({ data }) {
   return (
     <ResponsiveContainer width="100%" height={320}>
       <PieChart>
-        <Pie data={data} dataKey="value" outerRadius={110} label>
+        <Pie
+          data={data}
+          dataKey="value"
+          outerRadius={110}
+          label
+        >
           {data.map((_, i) => (
             <Cell key={i} fill={COLORS[i]} />
           ))}
@@ -364,28 +399,37 @@ function ChartBar({ data }) {
   );
 }
 
-/* STYLE */
+/* =========================
+   STYLE
+========================= */
 const page = {
   background: "#020617",
   minHeight: "100vh",
-  padding: 20,
+  padding: 24,
   color: "white",
-  fontFamily: "Arial"
+  fontFamily: "Arial, sans-serif"
 };
 
-const title = { fontSize: 48 };
-const subtitle = { color: "#94a3b8" };
+const title = {
+  fontSize: 48,
+  marginBottom: 10
+};
+
+const subtitle = {
+  color: "#94a3b8",
+  marginBottom: 20
+};
 
 const filterWrap = {
   display: "flex",
   gap: 12,
   flexWrap: "wrap",
-  margin: "20px 0"
+  marginBottom: 20
 };
 
 const input = {
   padding: 12,
-  minWidth: 220,
+  minWidth: 240,
   background: "#0f172a",
   color: "white",
   border: "1px solid #2563eb",
@@ -403,7 +447,7 @@ const grid6 = {
 const grid2 = {
   display: "grid",
   gridTemplateColumns:
-    "repeat(auto-fit,minmax(320px,1fr))",
+    "repeat(auto-fit,minmax(380px,1fr))",
   gap: 16,
   marginBottom: 20
 };
@@ -415,20 +459,23 @@ const card = {
   border: "1px solid #1e3a8a"
 };
 
-const small = { color: "#94a3b8" };
+const small = {
+  color: "#94a3b8"
+};
 
 const big = {
   fontSize: 34,
-  color: "#38bdf8",
   fontWeight: "bold",
-  marginTop: 8
+  marginTop: 8,
+  color: "#38bdf8"
 };
 
 const panel = {
   background: "#0f172a",
   padding: 20,
   borderRadius: 18,
-  border: "1px solid #1e3a8a"
+  border: "1px solid #1e3a8a",
+  marginBottom: 20
 };
 
 const row = {
@@ -436,4 +483,14 @@ const row = {
   justifyContent: "space-between",
   padding: "8px 0",
   borderBottom: "1px solid #1e3a8a"
+};
+
+const mentionItem = {
+  padding: "14px 0",
+  borderBottom: "1px solid #1e3a8a"
+};
+
+const recommendList = {
+  lineHeight: "2",
+  paddingLeft: 20
 };
