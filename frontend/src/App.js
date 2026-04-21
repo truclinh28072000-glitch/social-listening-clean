@@ -20,7 +20,7 @@ import {
 ========================= */
 const API_URL =
   process.env.REACT_APP_API_URL ||
-  "https://social-listening-api-lv7h.onrender.com";
+  "https://social-listening-api-new.onrender.com";
 
 const DEFAULT_PLATFORMS = [
   "TikTok",
