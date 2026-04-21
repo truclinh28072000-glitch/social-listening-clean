@@ -1,496 +1,506 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  LineChart,
-  Line,
-  BarChart,
-  Bar,
+  ResponsiveContainer,
   PieChart,
   Pie,
   Cell,
-  ResponsiveContainer,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   Tooltip,
   Legend,
-  CartesianGrid
+  CartesianGrid,
+  LineChart,
+  Line
 } from "recharts";
 
-/* =========================
+/* =========================================
    CONFIG
-========================= */
+========================================= */
 const API_URL =
   process.env.REACT_APP_API_URL ||
   "https://social-listening-api-new.onrender.com";
 
-const DEFAULT_PLATFORMS = [
-  "TikTok",
-  "Facebook",
-  "Instagram",
-  "Threads",
-  "YouTube",
-  "Shopee",
-  "Lazada",
-  "Tiki",
-  "News",
-  "Google Trends",
-  "Search Query",
-  "Webtretho",
-  "Reddit",
-  "Forum",
-  "Retail Feedback"
+/* =========================================
+   COLORS
+========================================= */
+const COLORS = ["#22c55e", "#ef4444", "#64748b"];
+const PLATFORM_COLORS = [
+  "#06b6d4",
+  "#3b82f6",
+  "#10b981",
+  "#8b5cf6",
+  "#f59e0b",
+  "#ef4444"
 ];
 
-const COLORS = ["#22c55e", "#ef4444", "#64748b"];
+/* =========================================
+   STATIC BUSINESS DATA
+========================================= */
+const kpis = [
+  { label: "Total Mentions", value: "12,480" },
+  { label: "Positive Rate", value: "74%" },
+  { label: "Engagement", value: "186K" },
+  { label: "Growth MoM", value: "+18.2%" }
+];
 
-/* =========================
-   APP
-========================= */
+const platformData = [
+  { name: "TikTok", value: 38 },
+  { name: "Facebook", value: 22 },
+  { name: "Shopee", value: 16 },
+  { name: "YouTube", value: 11 },
+  { name: "Search", value: 8 },
+  { name: "Forum", value: 5 }
+];
+
+const sentimentData = [
+  { name: "Positive", value: 74 },
+  { name: "Negative", value: 8 },
+  { name: "Neutral", value: 18 }
+];
+
+const monthlyTrend = [
+  { month: "Jan", mentions: 6200 },
+  { month: "Feb", mentions: 7100 },
+  { month: "Mar", mentions: 7600 },
+  { month: "Apr", mentions: 8800 },
+  { month: "May", mentions: 10200 },
+  { month: "Jun", mentions: 12480 }
+];
+
+const competitorData = [
+  { brand: "Lavie", mentions: 28000 },
+  { brand: "Aquafina", mentions: 24000 },
+  { brand: "Ion Life", mentions: 12480 },
+  { brand: "Satori", mentions: 9000 }
+];
+
+const keywordData = [
+  { keyword: "nước ion kiềm", score: 98 },
+  { keyword: "detox", score: 87 },
+  { keyword: "gym", score: 82 },
+  { keyword: "healthy", score: 79 },
+  { keyword: "đẹp da", score: 75 },
+  { keyword: "review thật", score: 70 }
+];
+
+const fallbackPosts = [
+  {
+    id: 1,
+    platform: "TikTok",
+    brand: "Ion Life",
+    content: "Uống sau gym thấy nhẹ bụng thật.",
+    sentiment: "Positive",
+    likes: 1240
+  },
+  {
+    id: 2,
+    platform: "Shopee",
+    brand: "Ion Life",
+    content: "Giao nhanh, đóng gói đẹp.",
+    sentiment: "Positive",
+    likes: 310
+  },
+  {
+    id: 3,
+    platform: "Facebook",
+    brand: "Ion Life",
+    content: "Giá hơi cao nhưng chất lượng ổn.",
+    sentiment: "Neutral",
+    likes: 145
+  },
+  {
+    id: 4,
+    platform: "TikTok",
+    brand: "Ion Life",
+    content: "Packaging đẹp hợp lifestyle.",
+    sentiment: "Positive",
+    likes: 980
+  },
+  {
+    id: 5,
+    platform: "YouTube",
+    brand: "Ion Life",
+    content: "Review nước ion kiềm chi tiết.",
+    sentiment: "Positive",
+    likes: 540
+  },
+  {
+    id: 6,
+    platform: "Forum",
+    brand: "Ion Life",
+    content: "Ai uống lâu dài rồi cho xin feedback?",
+    sentiment: "Neutral",
+    likes: 92
+  }
+];
+
+/* =========================================
+   MAIN APP
+========================================= */
 export default function App() {
   const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [keyword, setKeyword] = useState("");
   const [platform, setPlatform] = useState("All");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
 
-  /* LOAD DATA */
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        const res = await fetch(`${API_URL}/posts`);
-        const data = await res.json();
-
-        if (!Array.isArray(data)) {
-          throw new Error("Invalid API response");
+    fetch(`${API_URL}/posts`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setPosts(data);
+        } else {
+          setPosts(fallbackPosts);
         }
-
-        setPosts(data);
-      } catch (err) {
-        setError("Cannot connect API");
-        setPosts([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadData();
+      })
+      .catch(() => {
+        setPosts(fallbackPosts);
+      })
+      .finally(() => setLoading(false));
   }, []);
 
-  /* PLATFORM OPTIONS */
-  const platformOptions = useMemo(() => {
-    const apiPlatforms = posts
-      .map((p) => p.platform?.trim())
-      .filter(Boolean);
-
-    return ["All", ...new Set([...DEFAULT_PLATFORMS, ...apiPlatforms])];
+  const platforms = useMemo(() => {
+    const list = [...new Set(posts.map((p) => p.platform))];
+    return ["All", ...list];
   }, [posts]);
 
-  /* FILTERED POSTS */
-  const filtered = useMemo(() => {
+  const filteredPosts = useMemo(() => {
     return posts.filter((item) => {
-      const content = item.content?.toLowerCase() || "";
-      const itemPlatform = item.platform?.toLowerCase() || "";
-
       const matchKeyword =
-        keyword.trim() === "" ||
-        content.includes(keyword.toLowerCase());
+        item.content.toLowerCase().includes(keyword.toLowerCase()) ||
+        item.brand.toLowerCase().includes(keyword.toLowerCase());
 
       const matchPlatform =
-        platform === "All" ||
-        itemPlatform === platform.toLowerCase();
+        platform === "All" ? true : item.platform === platform;
 
       return matchKeyword && matchPlatform;
     });
   }, [posts, keyword, platform]);
 
-  /* KPI */
-  const total = filtered.length;
-
-  const positive = filtered.filter(
-    (x) => x.sentiment?.toLowerCase() === "positive"
-  ).length;
-
-  const negative = filtered.filter(
-    (x) => x.sentiment?.toLowerCase() === "negative"
-  ).length;
-
-  const neutral = total - positive - negative;
-
-  const positiveRate = total
-    ? Math.round((positive / total) * 100)
-    : 0;
-
-  const negativeRate = total
-    ? Math.round((negative / total) * 100)
-    : 0;
-
-  const avgLikes = total
-    ? Math.round(
-        filtered.reduce(
-          (sum, x) => sum + Number(x.likes || 0),
-          0
-        ) / total
-      )
-    : 0;
-
-  /* PLATFORM MAP */
-  const platformMap = useMemo(() => {
-    const map = {};
-
-    filtered.forEach((item) => {
-      const name = item.platform || "Unknown";
-      map[name] = (map[name] || 0) + 1;
-    });
-
-    return map;
-  }, [filtered]);
-
-  const topPlatform =
-    Object.keys(platformMap).sort(
-      (a, b) => platformMap[b] - platformMap[a]
-    )[0] || "-";
-
-  const sources = Object.keys(platformMap).length;
-
-  /* CHART DATA */
-  const trendData = [
-    { month: "Jan", mentions: 5 },
-    { month: "Feb", mentions: 7 },
-    { month: "Mar", mentions: 8 },
-    { month: "Apr", mentions: 10 },
-    { month: "May", mentions: 12 },
-    { month: "Jun", mentions: total }
-  ];
-
-  const sentimentData = [
-    { name: "Positive", value: positive },
-    { name: "Negative", value: negative },
-    { name: "Neutral", value: neutral }
-  ];
-
-  const platformData = Object.keys(platformMap).map((key) => ({
-    name: key,
-    mentions: platformMap[key]
-  }));
-
-  /* KEYWORD DATA */
-  const keywordData = useMemo(() => {
-    const map = {};
-
-    filtered.forEach((item) => {
-      item.content
-        ?.toLowerCase()
-        .replace(/[^\wÀ-ỹ\s]/g, "")
-        .split(" ")
-        .filter((w) => w.length > 2)
-        .forEach((word) => {
-          map[word] = (map[word] || 0) + 1;
-        });
-    });
-
-    return Object.keys(map)
-      .map((key) => ({
-        keyword: key,
-        count: map[key]
-      }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 10);
-  }, [filtered]);
-
-  /* =========================
-     UI
-  ========================= */
   return (
-    <div style={page}>
-      <h1 style={title}>📊 Social Listening ENTERPRISE</h1>
+    <div style={styles.page}>
+      <div style={styles.container}>
+        {/* HEADER */}
+        <div style={styles.hero}>
+          <h1 style={styles.title}>📊 Social Listening ENTERPRISE</h1>
+          <p style={styles.subtitle}>
+            Real-Time Brand Intelligence Dashboard | Ion Life
+          </p>
 
-      <p style={subtitle}>
-        Real-Time Brand Intelligence | Ion Life
-      </p>
+          <div style={styles.filterRow}>
+            <input
+              placeholder="Search keyword..."
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              style={styles.input}
+            />
 
-      {/* FILTER */}
-      <div style={filterWrap}>
-        <input
-          style={input}
-          placeholder="Search keyword..."
-          value={keyword}
-          onChange={(e) => setKeyword(e.target.value)}
-        />
-
-        <select
-          style={input}
-          value={platform}
-          onChange={(e) => setPlatform(e.target.value)}
-        >
-          {platformOptions.map((p) => (
-            <option key={p}>{p}</option>
-          ))}
-        </select>
-      </div>
-
-      {/* STATES */}
-      {loading && (
-        <Panel title="Loading">
-          <p>Fetching live data...</p>
-        </Panel>
-      )}
-
-      {error && (
-        <Panel title="API Error">
-          <p>{error}</p>
-        </Panel>
-      )}
-
-      {!loading && !error && (
-        <>
-          {/* KPI */}
-          <div style={grid6}>
-            <Card title="Total Mentions" value={total} />
-            <Card title="Positive Rate" value={`${positiveRate}%`} />
-            <Card title="Negative Rate" value={`${negativeRate}%`} />
-            <Card title="Top Platform" value={topPlatform} />
-            <Card title="Avg Likes" value={avgLikes} />
-            <Card title="Sources" value={sources} />
-          </div>
-
-          {/* MAIN CHARTS */}
-          <div style={grid2}>
-            <Panel title="Mention Trend">
-              <ChartLine data={trendData} />
-            </Panel>
-
-            <Panel title="Sentiment Breakdown">
-              <ChartPie data={sentimentData} />
-            </Panel>
-          </div>
-
-          <div style={grid2}>
-            <Panel title="Platform Performance">
-              <ChartBar data={platformData} />
-            </Panel>
-
-            <Panel title="Keyword Intelligence">
-              {keywordData.map((item) => (
-                <div key={item.keyword} style={row}>
-                  <span>{item.keyword}</span>
-                  <b>{item.count}</b>
-                </div>
+            <select
+              value={platform}
+              onChange={(e) => setPlatform(e.target.value)}
+              style={styles.select}
+            >
+              {platforms.map((p) => (
+                <option key={p}>{p}</option>
               ))}
-            </Panel>
+            </select>
           </div>
+        </div>
 
-          {/* RECENT MENTIONS */}
-          <Panel title="Recent Mentions">
-            {filtered.slice(0, 6).map((item) => (
-              <div key={item.id} style={mentionItem}>
-                <div style={{ fontWeight: "bold" }}>
-                  {item.platform} | {item.brand}
-                </div>
+        {/* KPI */}
+        <SectionTitle text="Executive KPI" />
+        <div style={styles.kpiGrid}>
+          {kpis.map((item) => (
+            <div key={item.label} style={styles.card}>
+              <div style={styles.kpiValue}>{item.value}</div>
+              <div style={styles.kpiLabel}>{item.label}</div>
+            </div>
+          ))}
+        </div>
 
-                <div style={{ marginTop: 6 }}>
-                  {item.content}
-                </div>
+        {/* CHARTS */}
+        <SectionTitle text="Performance Dashboard" />
+        <div style={styles.grid2}>
+          <Card title="Sentiment Breakdown">
+            <ChartBox>
+              <ResponsiveContainer width="100%" height={280}>
+                <PieChart>
+                  <Pie
+                    data={sentimentData}
+                    dataKey="value"
+                    outerRadius={90}
+                    label
+                  >
+                    {sentimentData.map((_, i) => (
+                      <Cell key={i} fill={COLORS[i]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </ChartBox>
+          </Card>
 
-                <small style={{ color: "#94a3b8" }}>
-                  {item.sentiment} 👍 {item.likes}
-                </small>
+          <Card title="Platform Share">
+            <ChartBox>
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={platformData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                  <XAxis dataKey="name" stroke="#cbd5e1" />
+                  <YAxis stroke="#cbd5e1" />
+                  <Tooltip />
+                  <Bar dataKey="value">
+                    {platformData.map((_, i) => (
+                      <Cell
+                        key={i}
+                        fill={PLATFORM_COLORS[i % PLATFORM_COLORS.length]}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartBox>
+          </Card>
+        </div>
+
+        <div style={styles.grid2}>
+          <Card title="Mention Growth Trend">
+            <ChartBox>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={monthlyTrend}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                  <XAxis dataKey="month" stroke="#cbd5e1" />
+                  <YAxis stroke="#cbd5e1" />
+                  <Tooltip />
+                  <Legend />
+                  <Line
+                    type="monotone"
+                    dataKey="mentions"
+                    stroke="#22c55e"
+                    strokeWidth={3}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </ChartBox>
+          </Card>
+
+          <Card title="Competitor Benchmark">
+            <ChartBox>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={competitorData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                  <XAxis dataKey="brand" stroke="#cbd5e1" />
+                  <YAxis stroke="#cbd5e1" />
+                  <Tooltip />
+                  <Bar dataKey="mentions" fill="#3b82f6" />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartBox>
+          </Card>
+        </div>
+
+        {/* KEYWORD */}
+        <SectionTitle text="Trending Keywords" />
+        <div style={styles.keywordGrid}>
+          {keywordData.map((item) => (
+            <div key={item.keyword} style={styles.keywordCard}>
+              <div style={{ fontWeight: 700 }}>{item.keyword}</div>
+              <div style={{ color: "#22c55e", marginTop: 8 }}>
+                Score: {item.score}
               </div>
-            ))}
-          </Panel>
+            </div>
+          ))}
+        </div>
 
-          {/* AI RECOMMENDATION */}
-          <Panel title="AI Strategic Recommendation">
-            <ul style={recommendList}>
-              <li>
-                ✅ {topPlatform} đang là nguồn thảo luận mạnh nhất.
-              </li>
-              <li>
-                ✅ Positive sentiment đạt {positiveRate}%.
-              </li>
-              <li>
-                ✅ Nên tăng creator review + social proof.
-              </li>
-              <li>
-                ✅ Tập trung messaging: sức khỏe + lifestyle.
-              </li>
-              <li>
-                ✅ Theo dõi pain point từ comment tiêu cực.
-              </li>
-              <li>
-                ✅ Expand sang TikTok + Shopee + Search Intent.
-              </li>
-            </ul>
-          </Panel>
-        </>
-      )}
+        {/* POSTS */}
+        <SectionTitle text="Recent Mentions" />
+        <div style={styles.card}>
+          {loading ? (
+            <div>Loading...</div>
+          ) : filteredPosts.length === 0 ? (
+            <div>No data found.</div>
+          ) : (
+            filteredPosts.map((item) => (
+              <div key={item.id} style={styles.postItem}>
+                <div style={styles.postTop}>
+                  <strong>{item.platform}</strong> | {item.brand}
+                </div>
+                <div style={styles.postContent}>{item.content}</div>
+                <div style={styles.postMeta}>
+                  {item.sentiment} 👍 {item.likes}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* RECOMMENDATION */}
+        <SectionTitle text="AI Strategic Recommendation" />
+        <div style={styles.card}>
+          <ul style={styles.ul}>
+            <li>✅ TikTok tạo 38% tổng thảo luận → tiếp tục creator seeding.</li>
+            <li>✅ Shopee sentiment cao nhất → đẩy conversion bundle.</li>
+            <li>
+              ✅ Search volume tăng mạnh với keyword “nước ion kiềm gym”.
+            </li>
+            <li>✅ Negative chủ yếu đến từ price concern.</li>
+            <li>✅ Launch dòng premium lifestyle cho Gen Z.</li>
+            <li>✅ Expand retail trial tại Circle K / GS25 / FamilyMart.</li>
+          </ul>
+        </div>
+
+        {/* FOOTER */}
+        <div style={styles.footer}>
+          Built for Business Case Presentation • Consulting Demo Version
+        </div>
+      </div>
     </div>
   );
 }
 
-/* =========================
+/* =========================================
    COMPONENTS
-========================= */
-function Card({ title, value }) {
-  return (
-    <div style={card}>
-      <div style={small}>{title}</div>
-      <div style={big}>{value}</div>
-    </div>
-  );
+========================================= */
+function SectionTitle({ text }) {
+  return <h2 style={styles.sectionTitle}>{text}</h2>;
 }
 
-function Panel({ title, children }) {
+function Card({ title, children }) {
   return (
-    <div style={panel}>
-      <h2 style={{ marginBottom: 16 }}>{title}</h2>
+    <div style={styles.card}>
+      <div style={styles.cardTitle}>{title}</div>
       {children}
     </div>
   );
 }
 
-function ChartLine({ data }) {
-  return (
-    <ResponsiveContainer width="100%" height={320}>
-      <LineChart data={data}>
-        <CartesianGrid stroke="#1e3a8a" strokeDasharray="3 3" />
-        <XAxis dataKey="month" stroke="#94a3b8" />
-        <YAxis stroke="#94a3b8" />
-        <Tooltip />
-        <Line
-          dataKey="mentions"
-          stroke="#38bdf8"
-          strokeWidth={3}
-        />
-      </LineChart>
-    </ResponsiveContainer>
-  );
+function ChartBox({ children }) {
+  return <div style={{ width: "100%", height: 300 }}>{children}</div>;
 }
 
-function ChartPie({ data }) {
-  return (
-    <ResponsiveContainer width="100%" height={320}>
-      <PieChart>
-        <Pie
-          data={data}
-          dataKey="value"
-          outerRadius={110}
-          label
-        >
-          {data.map((_, i) => (
-            <Cell key={i} fill={COLORS[i]} />
-          ))}
-        </Pie>
-        <Legend />
-      </PieChart>
-    </ResponsiveContainer>
-  );
-}
-
-function ChartBar({ data }) {
-  return (
-    <ResponsiveContainer width="100%" height={320}>
-      <BarChart data={data}>
-        <CartesianGrid stroke="#1e3a8a" strokeDasharray="3 3" />
-        <XAxis dataKey="name" stroke="#94a3b8" />
-        <YAxis stroke="#94a3b8" />
-        <Tooltip />
-        <Bar dataKey="mentions" fill="#6366f1" />
-      </BarChart>
-    </ResponsiveContainer>
-  );
-}
-
-/* =========================
-   STYLE
-========================= */
-const page = {
-  background: "#020617",
-  minHeight: "100vh",
-  padding: 24,
-  color: "white",
-  fontFamily: "Arial, sans-serif"
-};
-
-const title = {
-  fontSize: 48,
-  marginBottom: 10
-};
-
-const subtitle = {
-  color: "#94a3b8",
-  marginBottom: 20
-};
-
-const filterWrap = {
-  display: "flex",
-  gap: 12,
-  flexWrap: "wrap",
-  marginBottom: 20
-};
-
-const input = {
-  padding: 12,
-  minWidth: 240,
-  background: "#0f172a",
-  color: "white",
-  border: "1px solid #2563eb",
-  borderRadius: 10
-};
-
-const grid6 = {
-  display: "grid",
-  gridTemplateColumns:
-    "repeat(auto-fit,minmax(180px,1fr))",
-  gap: 16,
-  marginBottom: 20
-};
-
-const grid2 = {
-  display: "grid",
-  gridTemplateColumns:
-    "repeat(auto-fit,minmax(380px,1fr))",
-  gap: 16,
-  marginBottom: 20
-};
-
-const card = {
-  background: "#0f172a",
-  padding: 20,
-  borderRadius: 18,
-  border: "1px solid #1e3a8a"
-};
-
-const small = {
-  color: "#94a3b8"
-};
-
-const big = {
-  fontSize: 34,
-  fontWeight: "bold",
-  marginTop: 8,
-  color: "#38bdf8"
-};
-
-const panel = {
-  background: "#0f172a",
-  padding: 20,
-  borderRadius: 18,
-  border: "1px solid #1e3a8a",
-  marginBottom: 20
-};
-
-const row = {
-  display: "flex",
-  justifyContent: "space-between",
-  padding: "8px 0",
-  borderBottom: "1px solid #1e3a8a"
-};
-
-const mentionItem = {
-  padding: "14px 0",
-  borderBottom: "1px solid #1e3a8a"
-};
-
-const recommendList = {
-  lineHeight: "2",
-  paddingLeft: 20
+/* =========================================
+   STYLES
+========================================= */
+const styles = {
+  page: {
+    background: "#020617",
+    minHeight: "100vh",
+    color: "white",
+    fontFamily: "Inter, Arial, sans-serif"
+  },
+  container: {
+    maxWidth: 1400,
+    margin: "0 auto",
+    padding: 24
+  },
+  hero: {
+    marginBottom: 24
+  },
+  title: {
+    fontSize: 48,
+    fontWeight: 800,
+    marginBottom: 8
+  },
+  subtitle: {
+    color: "#94a3b8",
+    marginBottom: 20
+  },
+  filterRow: {
+    display: "flex",
+    gap: 12,
+    flexWrap: "wrap"
+  },
+  input: {
+    padding: 12,
+    width: 280,
+    borderRadius: 10,
+    border: "1px solid #2563eb",
+    background: "#0f172a",
+    color: "white"
+  },
+  select: {
+    padding: 12,
+    width: 220,
+    borderRadius: 10,
+    border: "1px solid #2563eb",
+    background: "#0f172a",
+    color: "white"
+  },
+  sectionTitle: {
+    fontSize: 30,
+    marginTop: 30,
+    marginBottom: 16,
+    fontWeight: 800
+  },
+  grid2: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))",
+    gap: 16
+  },
+  kpiGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+    gap: 16
+  },
+  keywordGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+    gap: 16
+  },
+  card: {
+    background: "#0f172a",
+    border: "1px solid #1d4ed8",
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16
+  },
+  cardTitle: {
+    fontSize: 20,
+    fontWeight: 700,
+    marginBottom: 14
+  },
+  kpiValue: {
+    fontSize: 34,
+    fontWeight: 800,
+    color: "#22c55e"
+  },
+  kpiLabel: {
+    marginTop: 8,
+    color: "#94a3b8"
+  },
+  keywordCard: {
+    background: "#0f172a",
+    border: "1px solid #1d4ed8",
+    borderRadius: 14,
+    padding: 18
+  },
+  postItem: {
+    padding: "14px 0",
+    borderBottom: "1px solid #1e293b"
+  },
+  postTop: {
+    fontSize: 22,
+    marginBottom: 6
+  },
+  postContent: {
+    fontSize: 18,
+    marginBottom: 6
+  },
+  postMeta: {
+    color: "#94a3b8"
+  },
+  ul: {
+    lineHeight: 2,
+    fontSize: 18,
+    paddingLeft: 22
+  },
+  footer: {
+    marginTop: 30,
+    textAlign: "center",
+    color: "#64748b",
+    paddingBottom: 20
+  }
 };
