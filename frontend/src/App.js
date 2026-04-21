@@ -1,108 +1,164 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
-  ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+  CartesianGrid
 } from "recharts";
 
+/* =========================
+   CONFIG
+========================= */
+const API_URL =
+  process.env.REACT_APP_API_URL ||
+  "https://social-listening-api-lv7h.onrender.com";
+
+const DEFAULT_PLATFORMS = [
+  "TikTok",
+  "Facebook",
+  "Instagram",
+  "Threads",
+  "YouTube",
+  "Shopee",
+  "Lazada",
+  "Tiki",
+  "News",
+  "Google Trends",
+  "Search Query",
+  "Webtretho",
+  "Reddit",
+  "Forum",
+  "Retail Feedback"
+];
+
+const COLORS = ["#22c55e", "#ef4444", "#64748b"];
+
+/* =========================
+   APP
+========================= */
 export default function App() {
   const [posts, setPosts] = useState([]);
   const [keyword, setKeyword] = useState("");
   const [platform, setPlatform] = useState("All");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  // =====================================
-  // LOAD API
-  // =====================================
+  /* LOAD DATA */
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/posts")
-      .then((res) => res.json())
-      .then((data) => {
-        setPosts(Array.isArray(data) ? data : []);
-      })
-      .catch(() => setPosts([]));
+    const loadData = async () => {
+      try {
+        const res = await fetch(`${API_URL}/posts`);
+        const data = await res.json();
+
+        if (!Array.isArray(data)) {
+          throw new Error("Invalid API response");
+        }
+
+        setPosts(data);
+      } catch (err) {
+        setError("Cannot connect API");
+        setPosts([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
   }, []);
 
-  // =====================================
-  // FULL PLATFORM LIST (NEW)
-  // =====================================
-  const defaultPlatforms = [
-    "TikTok",
-    "Facebook",
-    "Instagram",
-    "Threads",
-    "YouTube",
-    "Shopee",
-    "Lazada",
-    "Tiki",
-    "News",
-    "Google Trends",
-    "Search Query",
-    "Webtretho",
-    "Reddit",
-    "Forum",
-    "Retail Feedback"
-  ];
-
+  /* PLATFORM OPTIONS */
   const platformOptions = useMemo(() => {
-    const apiPlatforms = posts.map((p) => p.platform?.trim()).filter(Boolean);
-    const merged = [...new Set([...defaultPlatforms, ...apiPlatforms])];
-    return ["All", ...merged];
+    const apiPlatforms = posts
+      .map((p) => p.platform?.trim())
+      .filter(Boolean);
+
+    return [
+      "All",
+      ...new Set([...DEFAULT_PLATFORMS, ...apiPlatforms])
+    ];
   }, [posts]);
 
-  // =====================================
-  // FILTER
-  // =====================================
+  /* FILTERED POSTS */
   const filtered = useMemo(() => {
     return posts.filter((item) => {
+      const content = item.content?.toLowerCase() || "";
+      const itemPlatform =
+        item.platform?.toLowerCase() || "";
+
       const matchKeyword =
-        keyword === "" ||
-        item.content?.toLowerCase().includes(keyword.toLowerCase());
+        keyword.trim() === "" ||
+        content.includes(keyword.toLowerCase());
 
       const matchPlatform =
         platform === "All" ||
-        item.platform?.trim().toLowerCase() === platform.toLowerCase();
+        itemPlatform === platform.toLowerCase();
 
       return matchKeyword && matchPlatform;
     });
   }, [posts, keyword, platform]);
 
-  // =====================================
-  // KPI
-  // =====================================
+  /* KPI */
   const total = filtered.length;
 
   const positive = filtered.filter(
-    (p) => p.sentiment?.toLowerCase() === "positive"
+    (x) =>
+      x.sentiment?.toLowerCase() === "positive"
   ).length;
 
   const negative = filtered.filter(
-    (p) => p.sentiment?.toLowerCase() === "negative"
+    (x) =>
+      x.sentiment?.toLowerCase() === "negative"
   ).length;
 
   const neutral = total - positive - negative;
 
-  const positiveRate = total ? Math.round((positive / total) * 100) : 0;
-  const negativeRate = total ? Math.round((negative / total) * 100) : 0;
+  const positiveRate = total
+    ? Math.round((positive / total) * 100)
+    : 0;
+
+  const negativeRate = total
+    ? Math.round((negative / total) * 100)
+    : 0;
 
   const avgLikes = total
     ? Math.round(
-        filtered.reduce((sum, item) => sum + Number(item.likes || 0), 0) / total
+        filtered.reduce(
+          (sum, x) => sum + Number(x.likes || 0),
+          0
+        ) / total
       )
     : 0;
 
-  // Platform count
-  const platformMap = {};
-  filtered.forEach((item) => {
-    platformMap[item.platform] = (platformMap[item.platform] || 0) + 1;
-  });
+  /* PLATFORM MAP */
+  const platformMap = useMemo(() => {
+    const map = {};
+
+    filtered.forEach((item) => {
+      const name = item.platform || "Unknown";
+      map[name] = (map[name] || 0) + 1;
+    });
+
+    return map;
+  }, [filtered]);
 
   const topPlatform =
-    Object.keys(platformMap).sort((a, b) => platformMap[b] - platformMap[a])[0] || "-";
+    Object.keys(platformMap).sort(
+      (a, b) => platformMap[b] - platformMap[a]
+    )[0] || "-";
 
-  const sources = Object.keys(platformMap).length;
+  const sources =
+    Object.keys(platformMap).length;
 
-  // =====================================
-  // CHART DATA
-  // =====================================
+  /* CHART DATA */
   const trendData = [
     { month: "Jan", mentions: 5 },
     { month: "Feb", mentions: 7 },
@@ -118,54 +174,67 @@ export default function App() {
     { name: "Neutral", value: neutral }
   ];
 
-  const platformData = Object.keys(platformMap).map((key) => ({
-    name: key,
-    mentions: platformMap[key]
-  }));
+  const platformData = Object.keys(platformMap).map(
+    (key) => ({
+      name: key,
+      mentions: platformMap[key]
+    })
+  );
 
-  // Keyword intelligence
-  const keywordMap = {};
-  filtered.forEach((item) => {
-    item.content
-      ?.toLowerCase()
-      .replace(/[^\wÀ-ỹ\s]/g, "")
-      .split(" ")
-      .filter((w) => w.length > 2)
-      .forEach((word) => {
-        keywordMap[word] = (keywordMap[word] || 0) + 1;
-      });
-  });
+  /* KEYWORD */
+  const keywordData = useMemo(() => {
+    const map = {};
 
-  const keywordData = Object.keys(keywordMap)
-    .map((key) => ({
-      keyword: key,
-      count: keywordMap[key]
-    }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 10);
+    filtered.forEach((item) => {
+      item.content
+        ?.toLowerCase()
+        .replace(/[^\wÀ-ỹ\s]/g, "")
+        .split(" ")
+        .filter((w) => w.length > 2)
+        .forEach((word) => {
+          map[word] = (map[word] || 0) + 1;
+        });
+    });
 
-  const COLORS = ["#22c55e", "#ef4444", "#64748b"];
+    return Object.keys(map)
+      .map((key) => ({
+        keyword: key,
+        count: map[key]
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+  }, [filtered]);
 
+  /* =========================
+     UI
+  ========================= */
   return (
     <div style={page}>
-      <h1 style={{ fontSize: 54 }}>📊 Social Listening ENTERPRISE</h1>
-      <p style={{ color: "#94a3b8", marginTop: -10 }}>
+      <h1 style={title}>
+        📊 Social Listening ENTERPRISE
+      </h1>
+
+      <p style={subtitle}>
         Real-Time Brand Intelligence | Ion Life
       </p>
 
       {/* FILTER */}
-      <div style={{ display: "flex", gap: 15, margin: "25px 0", flexWrap: "wrap" }}>
+      <div style={filterWrap}>
         <input
+          style={input}
           placeholder="Search keyword..."
           value={keyword}
-          onChange={(e) => setKeyword(e.target.value)}
-          style={inputStyle}
+          onChange={(e) =>
+            setKeyword(e.target.value)
+          }
         />
 
         <select
+          style={input}
           value={platform}
-          onChange={(e) => setPlatform(e.target.value)}
-          style={inputStyle}
+          onChange={(e) =>
+            setPlatform(e.target.value)
+          }
         >
           {platformOptions.map((p) => (
             <option key={p}>{p}</option>
@@ -173,123 +242,68 @@ export default function App() {
         </select>
       </div>
 
-      {/* KPI */}
-      <div style={grid6}>
-        <Card title="Total Mentions" value={total} />
-        <Card title="Positive Rate" value={`${positiveRate}%`} />
-        <Card title="Negative Rate" value={`${negativeRate}%`} />
-        <Card title="Top Platform" value={topPlatform} />
-        <Card title="Avg Likes" value={avgLikes} />
-        <Card title="Sources" value={sources} />
-      </div>
-
-      {/* ROW 1 */}
-      <div style={grid2}>
-        <Panel title="Mention Trend">
-          <ResponsiveContainer width="100%" height={320}>
-            <LineChart data={trendData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e3a8a" />
-              <XAxis dataKey="month" stroke="#94a3b8" />
-              <YAxis stroke="#94a3b8" />
-              <Tooltip />
-              <Line
-                type="monotone"
-                dataKey="mentions"
-                stroke="#38bdf8"
-                strokeWidth={3}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+      {/* STATES */}
+      {loading && (
+        <Panel title="Loading">
+          <p>Fetching live data...</p>
         </Panel>
+      )}
 
-        <Panel title="Sentiment Breakdown">
-          <ResponsiveContainer width="100%" height={320}>
-            <PieChart>
-              <Pie data={sentimentData} dataKey="value" outerRadius={110} label>
-                {sentimentData.map((_, i) => (
-                  <Cell key={i} fill={COLORS[i]} />
-                ))}
-              </Pie>
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
+      {error && (
+        <Panel title="API Error">
+          <p>{error}</p>
         </Panel>
-      </div>
+      )}
 
-      {/* ROW 2 */}
-      <div style={grid2}>
-        <Panel title="Platform Performance">
-          <ResponsiveContainer width="100%" height={320}>
-            <BarChart data={platformData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e3a8a" />
-              <XAxis dataKey="name" stroke="#94a3b8" />
-              <YAxis stroke="#94a3b8" />
-              <Tooltip />
-              <Bar dataKey="mentions" fill="#6366f1" radius={[8, 8, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </Panel>
-
-        <Panel title="Keyword Intelligence">
-          <table style={{ width: "100%", color: "white" }}>
-            <tbody>
-              {keywordData.map((item, i) => (
-                <tr key={i}>
-                  <td style={{ padding: 8 }}>{item.keyword}</td>
-                  <td style={{ textAlign: "right" }}>{item.count}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </Panel>
-      </div>
-
-      {/* POSTS */}
-      <Panel title="Recent Mentions">
-        {filtered.length === 0 && (
-          <p style={{ color: "#94a3b8" }}>No data found.</p>
-        )}
-
-        {filtered.map((item) => (
-          <div
-            key={item.id}
-            style={{
-              padding: "14px 0",
-              borderBottom: "1px solid #1e3a8a"
-            }}
-          >
-            <b>{item.platform}</b> | {item.brand}
-            <div style={{ marginTop: 6 }}>{item.content}</div>
-            <small style={{ color: "#94a3b8" }}>
-              {item.sentiment} 👍 {item.likes}
-            </small>
+      {!loading && !error && (
+        <>
+          {/* KPI */}
+          <div style={grid6}>
+            <Card title="Total Mentions" value={total} />
+            <Card title="Positive Rate" value={`${positiveRate}%`} />
+            <Card title="Negative Rate" value={`${negativeRate}%`} />
+            <Card title="Top Platform" value={topPlatform} />
+            <Card title="Avg Likes" value={avgLikes} />
+            <Card title="Sources" value={sources} />
           </div>
-        ))}
-      </Panel>
 
-      {/* AI */}
-      <Panel title="AI Strategic Recommendation">
-        <ul style={{ lineHeight: 2 }}>
-          <li>✅ {topPlatform} đang là nguồn thảo luận mạnh nhất.</li>
-          <li>✅ Positive sentiment đạt {positiveRate}%.</li>
-          <li>✅ Nên tăng creator review + social proof.</li>
-          <li>✅ Tập trung messaging: sức khỏe + lifestyle.</li>
-          <li>✅ Theo dõi pain point từ comment tiêu cực.</li>
-          <li>✅ Expand sang TikTok + Shopee + Search Intent.</li>
-        </ul>
-      </Panel>
+          {/* CHARTS */}
+          <div style={grid2}>
+            <Panel title="Mention Trend">
+              <ChartLine data={trendData} />
+            </Panel>
+
+            <Panel title="Sentiment Breakdown">
+              <ChartPie data={sentimentData} />
+            </Panel>
+          </div>
+
+          <div style={grid2}>
+            <Panel title="Platform Performance">
+              <ChartBar data={platformData} />
+            </Panel>
+
+            <Panel title="Keyword Intelligence">
+              {keywordData.map((item) => (
+                <div key={item.keyword} style={row}>
+                  <span>{item.keyword}</span>
+                  <b>{item.count}</b>
+                </div>
+              ))}
+            </Panel>
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
-// =====================================
-// COMPONENTS
-// =====================================
+/* COMPONENTS */
 function Card({ title, value }) {
   return (
     <div style={card}>
-      <div style={{ color: "#94a3b8" }}>{title}</div>
-      <div style={cardValue}>{value}</div>
+      <div style={small}>{title}</div>
+      <div style={big}>{value}</div>
     </div>
   );
 }
@@ -297,67 +311,129 @@ function Card({ title, value }) {
 function Panel({ title, children }) {
   return (
     <div style={panel}>
-      <h2 style={{ marginBottom: 20 }}>{title}</h2>
+      <h2>{title}</h2>
       {children}
     </div>
   );
 }
 
-// STYLES
-// =====================================
+function ChartLine({ data }) {
+  return (
+    <ResponsiveContainer width="100%" height={320}>
+      <LineChart data={data}>
+        <CartesianGrid stroke="#1e3a8a" strokeDasharray="3 3" />
+        <XAxis dataKey="month" stroke="#94a3b8" />
+        <YAxis stroke="#94a3b8" />
+        <Tooltip />
+        <Line
+          dataKey="mentions"
+          stroke="#38bdf8"
+          strokeWidth={3}
+        />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+function ChartPie({ data }) {
+  return (
+    <ResponsiveContainer width="100%" height={320}>
+      <PieChart>
+        <Pie data={data} dataKey="value" outerRadius={110} label>
+          {data.map((_, i) => (
+            <Cell key={i} fill={COLORS[i]} />
+          ))}
+        </Pie>
+        <Legend />
+      </PieChart>
+    </ResponsiveContainer>
+  );
+}
+
+function ChartBar({ data }) {
+  return (
+    <ResponsiveContainer width="100%" height={320}>
+      <BarChart data={data}>
+        <CartesianGrid stroke="#1e3a8a" strokeDasharray="3 3" />
+        <XAxis dataKey="name" stroke="#94a3b8" />
+        <YAxis stroke="#94a3b8" />
+        <Tooltip />
+        <Bar dataKey="mentions" fill="#6366f1" />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+/* STYLE */
 const page = {
   background: "#020617",
   minHeight: "100vh",
-  color: "white",
   padding: 20,
-  fontFamily: "Arial, sans-serif"
+  color: "white",
+  fontFamily: "Arial"
 };
 
-const inputStyle = {
+const title = { fontSize: 48 };
+const subtitle = { color: "#94a3b8" };
+
+const filterWrap = {
+  display: "flex",
+  gap: 12,
+  flexWrap: "wrap",
+  margin: "20px 0"
+};
+
+const input = {
+  padding: 12,
+  minWidth: 220,
   background: "#0f172a",
   color: "white",
   border: "1px solid #2563eb",
-  borderRadius: 10,
-  padding: "14px 16px",
-  minWidth: 220,
-  fontSize: 16,
-  outline: "none"
+  borderRadius: 10
 };
 
 const grid6 = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))",
+  gridTemplateColumns:
+    "repeat(auto-fit,minmax(180px,1fr))",
   gap: 16,
   marginBottom: 20
 };
 
 const grid2 = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit,minmax(500px,1fr))",
+  gridTemplateColumns:
+    "repeat(auto-fit,minmax(320px,1fr))",
   gap: 16,
   marginBottom: 20
 };
 
 const card = {
   background: "#0f172a",
-  border: "1px solid #1e3a8a",
+  padding: 20,
   borderRadius: 18,
-  padding: 22,
-  boxShadow: "0 8px 24px rgba(0,0,0,0.25)"
+  border: "1px solid #1e3a8a"
 };
 
-const cardValue = {
+const small = { color: "#94a3b8" };
+
+const big = {
   fontSize: 34,
-  fontWeight: "bold",
   color: "#38bdf8",
-  marginTop: 10
+  fontWeight: "bold",
+  marginTop: 8
 };
 
 const panel = {
   background: "#0f172a",
-  border: "1px solid #1e3a8a",
+  padding: 20,
   borderRadius: 18,
-  padding: 22,
-  marginBottom: 20,
-  boxShadow: "0 8px 24px rgba(0,0,0,0.25)"
+  border: "1px solid #1e3a8a"
+};
+
+const row = {
+  display: "flex",
+  justifyContent: "space-between",
+  padding: "8px 0",
+  borderBottom: "1px solid #1e3a8a"
 };
